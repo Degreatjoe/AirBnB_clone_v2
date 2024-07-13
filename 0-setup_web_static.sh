@@ -43,7 +43,7 @@ echo "updating nginx configuration..."
 nginx_conf="/etc/nginx/sites-available/default"
 if ! grep -q "location /hbnb_static/" $nginx_conf; then
     sudo sed -i "/server_name _;/a \tlocation /hbnb_static/ {\n\t\talias /data/web_static/current/;\n/t-    }\n" $nginx_conf
-    sudo systemctl restart nginx
+    sudo service nginx restart
 fi
 echo "Done."
 # Exit successfully
