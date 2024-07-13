@@ -1,35 +1,42 @@
 #!/usr/bin/env bash
-# Sets up a web server for deployment of web_static.
+# This script sets up web servers for the deployment of web_static
 
-apt-get update
-apt-get install -y nginx
+# Exit immediately if a command exits with a non-zero status
+set -e
 
-mkdir -p /data/web_static/releases/test/
-mkdir -p /data/web_static/shared/
-echo "Holberton School" > /data/web_static/releases/test/index.html
-ln -sf /data/web_static/releases/test/ /data/web_static/current
+# Install Nginx if it is not already installed
+if ! dpkg -l | grep -q nginx; then
+    sudo apt-get update
+    sudo apt-get install -y nginx
+fi
 
-chown -R ubuntu /data/
-chgrp -R ubuntu /data/
+# Create necessary directories
+sudo mkdir -p /data/web_static/releases/test /data/web_static/shared
 
-printf %s "server {
-    listen 80 default_server;
-    listen [::]:80 default_server;
-    add_header X-Served-By $hostname;
-    root   /var/www/html;
-    index  index.html index.htm;
-    location /hbnb_static {
-        alias /data/web_static/current;
-        index index.html index.htm;
-    }
-    location /redirect_me {
-        return 301 http://github.com/besthor;
-    }
-    error_page 404 /404.html;
-    location /404 {
-      root /var/www/html;
-      internal;
-    }
-}" > /etc/nginx/sites-available/default
+# Create a fake HTML file to test Nginx configuration
+echo "<html>
+  <head>
+  </head>
+  <body>
+    Holberton School
+  </body>
+</html>" | sudo tee /data/web_static/releases/test/index.html
 
-service nginx restart
+# Create symbolic link, if it already exists, delete and recreate it
+if [ -L /data/web_static/current ]; then
+    sudo rm /data/web_static/current
+fi
+sudo ln -s /data/web_static/releases/test/ /data/web_static/current
+
+# Give ownership of /data/ to ubuntu user and group
+sudo chown -R ubuntu:ubuntu /data/
+
+# Update Nginx configuration to serve the content
+nginx_conf="/etc/nginx/sites-available/default"
+if ! grep -q "location /hbnb_static/" $nginx_conf; then
+    sudo sed -i "/server_name _;/a location /hbnb_static/ {\n\talias /data/web_static/current/;\n}\n" $nginx_conf
+    sudo systemctl restart nginx
+fi
+
+# Exit successfully
+exit 0
