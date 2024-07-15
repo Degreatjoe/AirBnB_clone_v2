@@ -1,50 +1,35 @@
 #!/usr/bin/env bash
-# This script sets up web servers for the deployment of web_static
+# Sets up a web server for deployment of web_static.
 
-# Exit immediately if a command exits with a non-zero status
-set -e
+sudo apt-get update
+sudo apt-get install -y nginx
 
-# Install Nginx if it is not already installed
-if ! dpkg -l | grep -q nginx; then
-    sudo apt-get update
-    sudo apt-get install -y nginx
-fi
+sudo mkdir -p /data/web_static/releases/test/
+sudo mkdir -p /data/web_static/shared/
+echo "Holberton School" > /data/web_static/releases/test/index.html
+sudo ln -sf /data/web_static/releases/test/ /data/web_static/current
 
-# Create necessary directories
-echo "creating the necessary directories..."
-sudo mkdir -p /data/web_static/releases/test /data/web_static/shared
-echo "Done."
+sudo chown -R ubuntu /data/
+sudo chgrp -R ubuntu /data/
 
-# Create a fake HTML file to test Nginx configuration
-echo "creating the fake html file..."
-echo "<html>
-  <head>
-  </head>
-  <body>
-    Holberton School
-  </body>
-</html>" | sudo tee /data/web_static/releases/test/index.html
-echo "Done"
+printf %s "server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    add_header X-Served-By $hostname;
+    root   /var/www/html;
+    index  index.html index.htm;
+    location /hbnb_static {
+        alias /data/web_static/current;
+        index index.html index.htm;
+    }
+    location /redirect_me {
+        return 301 http://github.com/besthor;
+    }
+    error_page 404 /404.html;
+    location /404 {
+      root /var/www/html;
+      internal;
+    }
+}" > /etc/nginx/sites-available/default
 
-# Create symbolic link, if it already exists, delete and recreate it
-echo "creating symbolic link..."
-if [ -L /data/web_static/current ]; then
-    sudo rm /data/web_static/current
-fi
-sudo ln -s /data/web_static/releases/test/ /data/web_static/current
-echo "Done."
-# Give ownership of /data/ to ubuntu user and group
-echo "setting ownership..."
-sudo chown -R ubuntu:ubuntu /data/
-echo "Done."
-
-# Update Nginx configuration to serve the content
-echo "updating nginx configuration..."
-nginx_conf="/etc/nginx/sites-available/default"
-if ! grep -q "location /hbnb_static/" $nginx_conf; then
-    sudo sed -i "/server_name _;/a \tlocation /hbnb_static/ {\n\t\talias /data/web_static/current/;\n/t-    }\n" $nginx_conf
-    sudo service nginx restart
-fi
-echo "Done."
-# Exit successfully
-exit 0
+service nginx restart
